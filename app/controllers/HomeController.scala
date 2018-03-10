@@ -21,12 +21,6 @@ class HomeController @Inject()(cc: ControllerComponents) extends AbstractControl
    * a path of `/`.
    */
   def index() = Action { implicit request: Request[AnyContent] =>
-
-
-    val sparkConfiguration = new SparkConf().
-      setAppName("spark-twitter-stream-example").
-      setMaster(sys.env.get("spark.master").getOrElse("local[*]"))
-
-    ???
+    Ok("ApplicationHome")
   }
 }

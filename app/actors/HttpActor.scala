@@ -1,6 +1,6 @@
 package actors
 
-
+import scala.concurrent.ExecutionContext.Implicits.global
 import actors.HttpActor.PostMessage
 import akka.actor.{Actor, ActorLogging, Props}
 import play.api.libs.json.JsValue
@@ -14,10 +14,11 @@ case class HttpActor(wsClient: WSClient) extends Actor with ActorLogging {
 
   override def receive: Receive = {
 
-    //TODO: Logging and retry?
     case PostMessage(msg, targetUrl) =>
-      wsClient.url(targetUrl).post(msg)
-
+      log.debug(s"Sending msg $msg to target $targetUrl")
+      wsClient.url(targetUrl).post(msg).onFailure {
+        case error => log.error(error.getMessage, error)
+      }
 
   }
 }

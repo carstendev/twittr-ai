@@ -8,9 +8,9 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 scalaVersion := "2.11.11"
 
-
-libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.3.0" % "provided"
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.3.0"
+//TODO: Important: provided must be used if the jobs are to run on a spark cluster and not in standalone mode
+libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.2.0"
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.2.0"
 libraryDependencies += "org.apache.bahir" %% "spark-streaming-twitter" % "2.2.0"
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.11"
 
@@ -18,6 +18,12 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.11"
 libraryDependencies += guice
 libraryDependencies += ws
 libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test
+
+libraryDependencies ~= { _.map(_.exclude("org.slf4j", "slf4j-log4j12")) }
+
+// Must be overridden to avoid conflict
+dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.5"
+
 
 // Adds additional packages into Twirl
 //TwirlKeys.templateImports += "com.twittr-ai.controllers._"
