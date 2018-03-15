@@ -37,7 +37,7 @@ class JobHandler @Inject()(configuration: JobConfiguration, wSClient: WSClient, 
   //TODO: The actor is not reachable afterwards
   hashtagAnalysisJobActor ! Start
 
-  def getTrendingHashtags(): Future[JsValue] = {
+  def getTrendingHashtags: Future[JsValue] = {
    (hashtagAnalysisState ? Get).mapTo[JsValue]
   }
 
