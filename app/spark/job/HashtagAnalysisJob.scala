@@ -4,12 +4,13 @@ import actors.HttpActor.PostMessage
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter.TwitterUtils
 import play.api.libs.json.{Json, _}
 import spark.job.HashtagAnalysisJob._
+import spark.job.HashtagAnalysisState.Put
 import twitter4j.Status
 
 /**
@@ -22,11 +23,12 @@ case class HashtagAnalysisJob
 (
   sparkContext: SparkContext,
   httpActor: ActorRef,
+  stateHolder: ActorRef,
   batchDuration: Duration = Seconds(5),
   window: Duration = Minutes(10)
 ) extends Actor with ActorLogging {
 
-  // Wrap the context in a streaming one, passing along the window size
+  // Wrap the context in a streaming one, passing along the batch duration
   private val streamingContext = new StreamingContext(sparkContext, batchDuration)
 
   // Creating a stream from Twitter (see the README to learn how to
@@ -34,39 +36,45 @@ case class HashtagAnalysisJob
   // need a set of Twitter API keys)
   private val tweets: DStream[Tweet] = TwitterUtils.createStream(streamingContext, None)
 
-  // split tweet into words
-  private val words = tweets.flatMap(_.getText.split(" "))
+  // split tweet into words, discard retweets and filter by lang
+  private val words = tweets
+    .filter(!_.isRetweeted)
+    .filter(tweet => LanguageSet.contains(tweet.getLang))
+    .flatMap(_.getText.split(" "))
 
-  // filter the words to get only hashtags, then map each hashtag to be a pair of (hashtag,1)
-  private val hashtags = words.filter(_.startsWith("#")).map(hashtag => (hashtag, 1L))
+  // filter the words to get only hashtags, then map each hashtag to be a tuple of (hashtag,1)
+  private val hashtags = words
+    .filter(_.startsWith("#"))
+    .map(hashtag => (hashtag, 1L))
 
   // sum hashtag counts by key and keep result over a sliding window
   private val hashtagTotals = hashtags.reduceByKeyAndWindow(_ + _, window)
 
   hashtagTotals.foreachRDD { rdd =>
 
-    val sqlContext = new SQLContext(rdd.context) //TODO: use builder
+    val sparkSession = SparkSession.builder().getOrCreate()
 
     val rowRdd = rdd.map(Row.fromTuple(_))
 
-    val df = sqlContext.createDataFrame(rowRdd, rowSchema)
+    val df = sparkSession.createDataFrame(rowRdd, rowSchema)
 
     df.createOrReplaceTempView("hashtags")
 
-    val topHashtagsDf = selectTopTenHashtags(sqlContext)
-
-    log.info(topHashtagsDf.toString())
+    val topHashtagsDf = selectTopTenHashtags(sparkSession)
 
     val hashtagsAndCounts = topHashtagsDf
       .select("hashtag", "count")
       .collect()
-      .map(e => (e.getString(0), e.getLong(1)))
+      .map(hashtagAndCount => (hashtagAndCount.getString(0), hashtagAndCount.getLong(1)))
 
-    hashtagsAndCounts.foreach(e => log.info(s"hashtag: ${e._1} count: ${e._2}"))
+    val asJson = convertToJson(hashtagsAndCounts)
 
-    val postMsg = PostMessage(convertToJson(hashtagsAndCounts), "http://localhost:5001/updateData")
+    log.info(asJson.toString)
+
+    val postMsg = PostMessage(asJson, "http://localhost:5001/hashtags")
 
     httpActor ! postMsg
+    stateHolder ! Put(asJson)
   }
 
   override def receive: Receive = {
@@ -77,27 +85,41 @@ case class HashtagAnalysisJob
       // Let's await the stream to end - forever
       streamingContext.awaitTermination()
 
+    case Stop(gracefully) =>
+      log.info(s"HashtagAnalysisJob was stopped, gracefully: $gracefully")
+      // Stop the streaming but keep the spark context running since it could be used by other jobs
+      streamingContext.stop(stopSparkContext = false, stopGracefully = gracefully)
+
   }
 
 }
 
 object HashtagAnalysisJob {
 
+  /**
+    * Message to start the job
+    */
   final case object Start
+
+  /**
+    * Message to stop the job
+    */
+  final case class Stop(gracefully: Boolean = true)
 
   private type Tweet = Status
   private type HashtagAndCount = (String, Long)
   private type HashtagsAndCounts = Array[HashtagAndCount]
 
-  private implicit object JsonWriteFormat extends Writes[HashtagsAndCounts] {
+  // English, German, French, Spanish and Dutch
+  private val LanguageSet = Set("en", "de", "fr", "es", "nl")
 
-    override def writes(hashtagsAndCounts: HashtagsAndCounts): JsValue = {
-      JsObject(
-        Seq(
-          "label" -> JsArray(hashtagsAndCounts.map(e => JsString(e._1))),
-          "count" -> JsArray(hashtagsAndCounts.map(e => JsNumber(e._2)))
-        )
-      )
+  private implicit object JsonWriteFormat extends Writes[HashtagAndCount] {
+
+    override def writes(hashtagAndCount: HashtagAndCount): JsValue = {
+      JsObject(Seq(
+        "hashtag" -> JsString(hashtagAndCount._1),
+        "count" -> JsNumber(hashtagAndCount._2)
+      ))
     }
   }
 
@@ -106,19 +128,20 @@ object HashtagAnalysisJob {
     StructField("count", DataTypes.LongType, nullable = false)
   ))
 
-  private[job] def selectTopTenHashtags(sqlContext: SQLContext) = {
-    sqlContext.sql("select hashtag, count from hashtags order by count desc limit 10")
+  private[job] def selectTopTenHashtags(sparkSession: SparkSession) = {
+    sparkSession.sql("select hashtag, count from hashtags order by count desc limit 10")
   }
 
   private[job] def convertToJson(hashtagsAndCounts: HashtagsAndCounts): JsValue = Json.toJson(hashtagsAndCounts)
 
   def props(sparkContext: SparkContext,
             httpActor: ActorRef,
+            stateHolder: ActorRef,
             batchDuration: Duration = Seconds(5),
             window: Duration = Minutes(10)
            ): Props = {
 
-    Props(classOf[HashtagAnalysisJob], sparkContext, httpActor, batchDuration, window)
+    Props(classOf[HashtagAnalysisJob], sparkContext, httpActor, stateHolder, batchDuration, window)
   }
 
 }
