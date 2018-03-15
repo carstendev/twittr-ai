@@ -23,7 +23,10 @@ object JobConfiguration {
   def resolveSparkContext(configuration: Configuration): SparkContext = {
     val appName = configuration.get[String]("spark.app.name")
     val master = configuration.get[String]("spark.master")
-    new SparkContext(new SparkConf().setAppName(appName).setMaster(sys.env.getOrElse(master, "local[*]")))
+    val logLevel = configuration.get[String]("spark.loglevel")
+    val sparkContext = new SparkContext(new SparkConf().setAppName(appName).setMaster(sys.env.getOrElse(master, "local[*]")))
+    sparkContext.setLogLevel(logLevel)
+    sparkContext
   }
 
   def loadTwitter4jOauth(configuration: Configuration): Unit = {
