@@ -25,7 +25,7 @@ case class HashtagAnalysisJob
   httpActor: ActorRef,
   stateHolder: ActorRef,
   batchDuration: Duration = Seconds(5),
-  window: Duration = Minutes(10)
+  window: Duration = Minutes(60)
 ) extends Actor with ActorLogging {
 
   // Wrap the context in a streaming one, passing along the batch duration
@@ -71,7 +71,7 @@ case class HashtagAnalysisJob
 
     log.info(asJson.toString)
 
-    val postMsg = PostMessage(asJson, "http://localhost:5001/hashtags")
+    val postMsg = PostMessage(asJson, "http://localhost:9001/hashtags")
 
     httpActor ! postMsg
     stateHolder ! Put(asJson)
@@ -138,7 +138,7 @@ object HashtagAnalysisJob {
             httpActor: ActorRef,
             stateHolder: ActorRef,
             batchDuration: Duration = Seconds(5),
-            window: Duration = Minutes(10)
+            window: Duration = Minutes(60)
            ): Props = {
 
     Props(classOf[HashtagAnalysisJob], sparkContext, httpActor, stateHolder, batchDuration, window)
