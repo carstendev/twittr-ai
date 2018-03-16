@@ -2,7 +2,7 @@ import com.typesafe.config.ConfigFactory
 import play.api.inject.guice.{GuiceApplicationBuilder, GuiceApplicationLoader}
 import play.api.{ApplicationLoader, Configuration, Logger}
 
-class ApplicationLoader extends GuiceApplicationLoader() {
+class TwittrAiAppLoader extends GuiceApplicationLoader() {
 
   private val Log: Logger = Logger(this.getClass)
 
