@@ -10,11 +10,12 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter.TwitterUtils
 import play.api.libs.json.{Json, _}
 import spark.job.HashtagAnalysisJob._
-import spark.job.HashtagAnalysisState.Put
 import twitter4j.Status
+import org.apache.spark.sql.functions._
+
 
 /**
-  * Spark job that figures out the the most hot/trending hashtags.
+  * Spark job that figures out the the most hot/trending hashtags and writes them to kafka using topic "TrendingHashtagAnalysis".
   *
   * @param batchDuration the time interval at which streaming data will be divided into batches
   * @param window        the time window to consider tweet's for
@@ -23,7 +24,6 @@ case class HashtagAnalysisJob
 (
   config: JobConfiguration,
   httpActor: ActorRef,
-  stateHolder: ActorRef,
   batchDuration: Duration = Seconds(5),
   window: Duration = Minutes(60)
 ) extends Actor with ActorLogging {
@@ -31,7 +31,7 @@ case class HashtagAnalysisJob
   // Wrap the context in a streaming one, passing along the batch duration
   private val streamingContext = new StreamingContext(config.sparkContext, batchDuration)
 
-  // Creating a stream from Twitter (see the README to learn how to
+ // Creating a stream from Twitter (see the README to learn how to
   // provide a configuration to make this work - you'll basically
   // need a set of Twitter API keys)
   private val tweets: DStream[Tweet] = TwitterUtils.createStream(streamingContext, None)
@@ -74,14 +74,16 @@ case class HashtagAnalysisJob
     val postMsg = PostMessage(asJson, "http://localhost:9001/hashtags")
 
     httpActor ! postMsg
-    stateHolder ! Put(asJson)
 
     topHashtagsDf
-      .writeStream
+      .select(struct("hashtag", "count").as("hashtag_and_count"))
+      .agg(collect_set("hashtag_and_count")).as("value")
+      .toJSON
+      .write
       .format("kafka")
       .option("kafka.bootstrap.servers", config.kafkaConfig.bootstrapServers)
       .option("topic", KafkaOutputTopic)
-      .start()
+      .save
   }
 
   override def receive: Receive = {
@@ -117,8 +119,8 @@ object HashtagAnalysisJob {
   private type HashtagAndCount = (String, Long)
   private type HashtagsAndCounts = Array[HashtagAndCount]
 
-  // English, German, French, Spanish and Dutch
-  private val LanguageSet = Set("en", "de", "fr", "es", "nl")
+  // English, German, French, Spanish, Portuguese and Dutch
+  private val LanguageSet = Set("en", "de", "fr", "es", "pt", "nl")
 
   private val KafkaOutputTopic = "TrendingHashtagAnalysis"
 
@@ -145,12 +147,11 @@ object HashtagAnalysisJob {
 
   def props(config: JobConfiguration,
             httpActor: ActorRef,
-            stateHolder: ActorRef,
             batchDuration: Duration = Seconds(5),
             window: Duration = Minutes(60)
            ): Props = {
 
-    Props(classOf[HashtagAnalysisJob], config, httpActor, stateHolder, batchDuration, window)
+    Props(classOf[HashtagAnalysisJob], config, httpActor, batchDuration, window)
   }
 
 }

@@ -4,16 +4,13 @@ import javax.inject.{Inject, Singleton}
 
 import actors.HttpActor
 import akka.actor.{ActorSystem, PoisonPill}
-import akka.pattern.ask
 import akka.util.Timeout
 import configuration.JobConfiguration
 import play.api.Logger
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.JsValue
 import play.api.libs.ws.WSClient
+import spark.job.HashtagAnalysisJob
 import spark.job.HashtagAnalysisJob.{Start, Stop}
-import spark.job.HashtagAnalysisState.Get
-import spark.job.{HashtagAnalysisJob, HashtagAnalysisState}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -26,20 +23,13 @@ class JobHandler @Inject()(configuration: JobConfiguration, wSClient: WSClient, 
   private val system = ActorSystem("ActorSystem")
   private implicit val timeout = Timeout(5.seconds)
 
-  private val hashtagAnalysisState = system.actorOf(HashtagAnalysisState.props, "HashtagAnalysisState")
-
   private val hashtagAnalysisJobActor = system.actorOf(HashtagAnalysisJob.props(
     configuration,
-    system.actorOf(HttpActor.props(wSClient), "HashtagAnalysisHttpActor"),
-    hashtagAnalysisState
+    system.actorOf(HttpActor.props(wSClient), "HashtagAnalysisHttpActor")
   ), "HashtagAnalysisJobActor")
 
-  //TODO: The actor is not reachable afterwards
+  //TODO: The actor is not reachable afterwards => do not use actor here
   hashtagAnalysisJobActor ! Start
-
-  def getTrendingHashtags: Future[JsValue] = {
-   (hashtagAnalysisState ? Get).mapTo[JsValue]
-  }
 
   lifecycle.addStopHook { () =>
 

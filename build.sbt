@@ -13,7 +13,10 @@ libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.2.0"
 libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.2.0"
 libraryDependencies += "org.apache.bahir" %% "spark-streaming-twitter" % "2.2.0"
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.11"
-
+libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.2.0"
+libraryDependencies += "org.apache.spark" %% "spark-sql-kafka-0-10" % "2.2.0"
+libraryDependencies += "org.apache.kafka" % "kafka-clients" % "0.10.1.1"
+libraryDependencies += "org.apache.kafka" % "kafka_2.11" % "0.10.1.1"
 
 libraryDependencies += guice
 libraryDependencies += ws
