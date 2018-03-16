@@ -2,17 +2,17 @@ package configuration
 
 import javax.inject.{Inject, Singleton}
 
+import configuration.JobConfiguration._
 import org.apache.spark.{SparkConf, SparkContext}
 import play.api.Configuration
-import configuration.JobConfiguration._
 
 
 @Singleton
-case class JobConfiguration(sparkContext: SparkContext) {
+case class JobConfiguration(sparkContext: SparkContext, kafkaConfig: KafkaConfig) {
 
   @Inject
   def this(configuration: Configuration) {
-    this(resolveSparkContext(configuration))
+    this(resolveSparkContext(configuration), resolveKafkaConfig(configuration))
     loadTwitter4jOauth(configuration)
   }
 
@@ -27,6 +27,10 @@ object JobConfiguration {
     val sparkContext = new SparkContext(new SparkConf().setAppName(appName).setMaster(sys.env.getOrElse(master, "local[*]")))
     sparkContext.setLogLevel(logLevel)
     sparkContext
+  }
+
+  def resolveKafkaConfig(configuration: Configuration): KafkaConfig = {
+    KafkaConfig(configuration.get[String]("kafka.bootstrap.servers"))
   }
 
   def loadTwitter4jOauth(configuration: Configuration): Unit = {

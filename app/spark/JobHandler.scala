@@ -29,7 +29,7 @@ class JobHandler @Inject()(configuration: JobConfiguration, wSClient: WSClient, 
   private val hashtagAnalysisState = system.actorOf(HashtagAnalysisState.props, "HashtagAnalysisState")
 
   private val hashtagAnalysisJobActor = system.actorOf(HashtagAnalysisJob.props(
-    configuration.sparkContext,
+    configuration,
     system.actorOf(HttpActor.props(wSClient), "HashtagAnalysisHttpActor"),
     hashtagAnalysisState
   ), "HashtagAnalysisJobActor")

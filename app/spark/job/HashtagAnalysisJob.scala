@@ -2,7 +2,7 @@ package spark.job
 
 import actors.HttpActor.PostMessage
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import org.apache.spark.SparkContext
+import configuration.JobConfiguration
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.streaming._
@@ -21,7 +21,7 @@ import twitter4j.Status
   */
 case class HashtagAnalysisJob
 (
-  sparkContext: SparkContext,
+  config: JobConfiguration,
   httpActor: ActorRef,
   stateHolder: ActorRef,
   batchDuration: Duration = Seconds(5),
@@ -29,7 +29,7 @@ case class HashtagAnalysisJob
 ) extends Actor with ActorLogging {
 
   // Wrap the context in a streaming one, passing along the batch duration
-  private val streamingContext = new StreamingContext(sparkContext, batchDuration)
+  private val streamingContext = new StreamingContext(config.sparkContext, batchDuration)
 
   // Creating a stream from Twitter (see the README to learn how to
   // provide a configuration to make this work - you'll basically
@@ -75,6 +75,13 @@ case class HashtagAnalysisJob
 
     httpActor ! postMsg
     stateHolder ! Put(asJson)
+
+    topHashtagsDf
+      .writeStream
+      .format("kafka")
+      .option("kafka.bootstrap.servers", config.kafkaConfig.bootstrapServers)
+      .option("topic", KafkaOutputTopic)
+      .start()
   }
 
   override def receive: Receive = {
@@ -113,6 +120,8 @@ object HashtagAnalysisJob {
   // English, German, French, Spanish and Dutch
   private val LanguageSet = Set("en", "de", "fr", "es", "nl")
 
+  private val KafkaOutputTopic = "TrendingHashtagAnalysis"
+
   private implicit object JsonWriteFormat extends Writes[HashtagAndCount] {
 
     override def writes(hashtagAndCount: HashtagAndCount): JsValue = {
@@ -134,14 +143,14 @@ object HashtagAnalysisJob {
 
   private[job] def convertToJson(hashtagsAndCounts: HashtagsAndCounts): JsValue = Json.toJson(hashtagsAndCounts)
 
-  def props(sparkContext: SparkContext,
+  def props(config: JobConfiguration,
             httpActor: ActorRef,
             stateHolder: ActorRef,
             batchDuration: Duration = Seconds(5),
             window: Duration = Minutes(60)
            ): Props = {
 
-    Props(classOf[HashtagAnalysisJob], sparkContext, httpActor, stateHolder, batchDuration, window)
+    Props(classOf[HashtagAnalysisJob], config, httpActor, stateHolder, batchDuration, window)
   }
 
 }

@@ -15,6 +15,6 @@ class HashtagAnalysisController @Inject()(cc: ControllerComponents, jobHandler: 
 
   def getTrendingHashtags = Action.async {
 
-    jobHandler.getTrendingHashtags().map(Ok(_))
+    jobHandler.getTrendingHashtags.map(Ok(_))
   }
 }
