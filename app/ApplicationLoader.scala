@@ -2,7 +2,7 @@ import com.typesafe.config.ConfigFactory
 import play.api.inject.guice.{GuiceApplicationBuilder, GuiceApplicationLoader}
 import play.api.{ApplicationLoader, Configuration, Logger}
 
-class CustomApplicationLoader extends GuiceApplicationLoader() {
+class ApplicationLoader extends GuiceApplicationLoader() {
 
   private val Log: Logger = Logger(this.getClass)
 
@@ -10,17 +10,16 @@ class CustomApplicationLoader extends GuiceApplicationLoader() {
 
     Log debug "builder(...)"
 
-    val envOption1 = Option(System getProperty("ENV", "")) filter(_.nonEmpty)
-    val envOption2 = Option(System getProperty("env", "")) filter(_.nonEmpty)
+    val env = Option(System getProperty("ENV", "")) filter(_.nonEmpty)
 
-    val envConfigFileName = envOption1 orElse envOption2 match {
+    val envConfigFileName = env match {
       case Some(envName) =>
         s"application.${envName.toLowerCase}.conf"
       case None =>
         "application.dev.conf"
     }
 
-    Log info s"Using environment config file: $envConfigFileName"
+    Log info s"Using file: $envConfigFileName"
 
     val config = Configuration(ConfigFactory load envConfigFileName)
 
