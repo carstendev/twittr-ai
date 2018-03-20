@@ -3,6 +3,7 @@ package spark.job
 import actors.HttpActor.PostMessage
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import configuration.JobConfiguration
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.streaming._
@@ -11,8 +12,6 @@ import org.apache.spark.streaming.twitter.TwitterUtils
 import play.api.libs.json.{Json, _}
 import spark.job.HashtagAnalysisJob._
 import twitter4j.Status
-import org.apache.spark.sql.functions._
-
 
 /**
   * Spark job that figures out the the most hot/trending hashtags and writes them to kafka using topic "TrendingHashtagAnalysis".
@@ -31,10 +30,10 @@ case class HashtagAnalysisJob
   // Wrap the context in a streaming one, passing along the batch duration
   private val streamingContext = new StreamingContext(config.sparkContext, batchDuration)
 
- // Creating a stream from Twitter (see the README to learn how to
+  // Creating a stream from Twitter (see the README to learn how to
   // provide a configuration to make this work - you'll basically
   // need a set of Twitter API keys)
-  private val tweets: DStream[Tweet] = TwitterUtils.createStream(streamingContext, None)
+  private val tweets: DStream[Tweet] = TwitterUtils.createStream(streamingContext, Some(config.twitter.getAuthorization))
 
   // split tweet into words, discard retweets and filter by lang
   private val words = tweets
@@ -120,7 +119,7 @@ object HashtagAnalysisJob {
   private type HashtagsAndCounts = Array[HashtagAndCount]
 
   // English, German, French, Spanish, Portuguese and Dutch
-  private val LanguageSet = Set("en", "de", "fr", "es", "pt", "nl")
+  val LanguageSet = Set("en", "de", "fr", "es", "pt", "nl")
 
   private val KafkaOutputTopic = "TrendingHashtagAnalysis"
 
