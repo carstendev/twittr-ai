@@ -13,7 +13,7 @@ object TwitterHelper {
 
   def fetch(keyword: String, oAuthKeys: OAuthKeys, count: Int = 100): Seq[String] = {
     Log.info(s"Start fetching tweets filtered by keyword=$keyword")
-    val query = new Query(s"$keyword -filter:retweets")
+    val query = new Query(s"$keyword -filter:retweets").lang("en")
     val result = twitter(oAuthKeys).search(query)
     result.getTweets.asScala.take(count).map(_.getText)
   }

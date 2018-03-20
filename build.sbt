@@ -4,19 +4,27 @@ organization := "com.twittr-ai"
 
 version := "1.0-SNAPSHOT"
 
+val sparkVersion = "2.2.0"
+
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 scalaVersion := "2.11.11"
 
 //TODO: Important: provided must be used if the jobs are to run on a spark cluster and not in standalone mode
-libraryDependencies += "org.apache.spark" %% "spark-streaming" % "2.2.0"
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.2.0"
-libraryDependencies += "org.apache.bahir" %% "spark-streaming-twitter" % "2.2.0"
+libraryDependencies += "org.apache.spark" %% "spark-streaming" % sparkVersion
+libraryDependencies += "org.apache.spark" %% "spark-mllib" % sparkVersion
+libraryDependencies += "org.apache.spark" %% "spark-sql" % sparkVersion
+libraryDependencies += "org.apache.bahir" %% "spark-streaming-twitter" % sparkVersion
+libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
+libraryDependencies += "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.11"
-libraryDependencies += "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.2.0"
-libraryDependencies += "org.apache.spark" %% "spark-sql-kafka-0-10" % "2.2.0"
 libraryDependencies += "org.apache.kafka" % "kafka-clients" % "0.10.1.1"
 libraryDependencies += "org.apache.kafka" % "kafka_2.11" % "0.10.1.1"
+
+libraryDependencies += "org.jblas" % "jblas" % "1.2.4"
+libraryDependencies += "org.scalanlp" %% "breeze" % "0.11.2"
+libraryDependencies += "org.scalanlp" % "chalk" % "1.3.0" intransitive()
+libraryDependencies += "org.scalanlp" % "nak" % "1.2.0" intransitive()
 
 libraryDependencies += guice
 libraryDependencies += ws

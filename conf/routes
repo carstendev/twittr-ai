@@ -5,3 +5,5 @@
 
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
+PUT     /trending/hashtags         controllers.HashtagAnalysisController.updateState
+GET     /trending/hashtags         controllers.HashtagAnalysisController.getState

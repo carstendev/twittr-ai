@@ -2,7 +2,7 @@ package configuration
 
 import javax.inject.{Inject, Singleton}
 
-import configuration.JobConfiguration._
+import configuration.AiConfiguration._
 import org.apache.spark.{SparkConf, SparkContext}
 import play.api.Configuration
 import twitter4j.Twitter
@@ -10,7 +10,7 @@ import helpers.TwitterHelper
 
 
 @Singleton
-case class JobConfiguration(sparkContext: SparkContext, kafkaConfig: KafkaConfig, twitter: Twitter) {
+case class AiConfiguration(sparkContext: SparkContext, kafkaConfig: KafkaConfig, twitter: Twitter) {
 
   @Inject
   def this(configuration: Configuration) {
@@ -22,7 +22,7 @@ case class JobConfiguration(sparkContext: SparkContext, kafkaConfig: KafkaConfig
   }
 }
 
-object JobConfiguration {
+object AiConfiguration {
 
   def resolveSparkContext(configuration: Configuration): SparkContext = {
     val appName = configuration.get[String]("spark.app.name")

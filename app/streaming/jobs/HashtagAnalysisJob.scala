@@ -1,8 +1,8 @@
-package spark.job
+package streaming.jobs
 
 import actors.HttpActor.PostMessage
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import configuration.JobConfiguration
+import configuration.AiConfiguration
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
@@ -10,7 +10,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter.TwitterUtils
 import play.api.libs.json.{Json, _}
-import spark.job.HashtagAnalysisJob._
+import streaming.jobs.HashtagAnalysisJob._
 import twitter4j.Status
 
 /**
@@ -21,11 +21,13 @@ import twitter4j.Status
   */
 case class HashtagAnalysisJob
 (
-  config: JobConfiguration,
+  config: AiConfiguration,
   httpActor: ActorRef,
   batchDuration: Duration = Seconds(5),
   window: Duration = Minutes(60)
 ) extends Actor with ActorLogging {
+
+  private var running = false
 
   // Wrap the context in a streaming one, passing along the batch duration
   private val streamingContext = new StreamingContext(config.sparkContext, batchDuration)
@@ -88,16 +90,23 @@ case class HashtagAnalysisJob
   override def receive: Receive = {
 
     case Start =>
-      // Now that the streaming is defined, start it
-      streamingContext.start()
-      // Let's await the stream to end - forever
-      streamingContext.awaitTermination()
+      if (!running) {
+        // Now that the streaming is defined, start it
+        streamingContext.start()
+        running = true
+      }
 
     case Stop(gracefully) =>
-      log.info(s"HashtagAnalysisJob was stopped, gracefully: $gracefully")
-      // Stop the streaming but keep the spark context running since it could be used by other jobs
-      streamingContext.stop(stopSparkContext = false, stopGracefully = gracefully)
+      if (running) {
+        log.info(s"HashtagAnalysisJob was stopped, gracefully: $gracefully")
+        // Stop the streaming but keep the spark context running since it could be used by other jobs
+        streamingContext.stop(stopSparkContext = false, stopGracefully = gracefully)
+      }
 
+  }
+
+  override def postStop(): Unit = {
+    streamingContext.stop(stopSparkContext = false, stopGracefully = true)
   }
 
 }
@@ -138,13 +147,13 @@ object HashtagAnalysisJob {
     StructField("count", DataTypes.LongType, nullable = false)
   ))
 
-  private[job] def selectTopTenHashtags(sparkSession: SparkSession) = {
+  private[jobs] def selectTopTenHashtags(sparkSession: SparkSession) = {
     sparkSession.sql("select hashtag, count from hashtags order by count desc limit 10")
   }
 
-  private[job] def convertToJson(hashtagsAndCounts: HashtagsAndCounts): JsValue = Json.toJson(hashtagsAndCounts)
+  private[jobs] def convertToJson(hashtagsAndCounts: HashtagsAndCounts): JsValue = Json.toJson(hashtagsAndCounts)
 
-  def props(config: JobConfiguration,
+  def props(config: AiConfiguration,
             httpActor: ActorRef,
             batchDuration: Duration = Seconds(5),
             window: Duration = Minutes(60)

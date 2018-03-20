@@ -1,5 +1,5 @@
 import com.google.inject.AbstractModule
-import spark.JobHandler
+import streaming.JobHandler
 
 /**
   * This class is a Guice module that tells Guice how to bind several
