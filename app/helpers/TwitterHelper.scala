@@ -11,11 +11,11 @@ object TwitterHelper {
 
   private val Log = Logger(this.getClass)
 
-  def fetch(keyword: String, oAuthKeys: OAuthKeys): Seq[String] = {
+  def fetch(keyword: String, oAuthKeys: OAuthKeys, count: Int = 100): Seq[String] = {
     Log.info(s"Start fetching tweets filtered by keyword=$keyword")
     val query = new Query(s"$keyword -filter:retweets")
     val result = twitter(oAuthKeys).search(query)
-    result.getTweets.asScala.take(100).map(_.getText)
+    result.getTweets.asScala.take(count).map(_.getText)
   }
 
   def twitter(oAuthKeys: OAuthKeys): Twitter = {
