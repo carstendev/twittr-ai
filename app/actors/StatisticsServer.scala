@@ -22,7 +22,7 @@ object StatisticsServer {
 
     type TrainerType = TrainerType.Value
 
-    val Batch, Online = Value
+    val Online = Value
 
     implicit val reads: Reads[TrainerType] = EnumUtils.enumReads(TrainerType)
 
